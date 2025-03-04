@@ -72,6 +72,26 @@ def get_db_items(ids, table_name):
         print(f"Error getting items from DynamoDB: {e}")
         return []
 
+def set_db_items(items, table_name):
+    client = get_dynamodb_client()
+    try:
+        for batch in chunk_list(items, 25):
+            requests = []
+            for item in batch:
+                requests.append({
+                    'PutRequest': {
+                        'Item': item
+                    }
+                })
+            response = client.batch_write_item(
+                RequestItems={
+                    table_name: requests
+                }
+            )
+            print(f"Batch write response: {response}")
+    except Exception as e:
+        print(f"Error setting items in DynamoDB: {e}")
+
 def default_handler(func, success_message):
     try:
         func()

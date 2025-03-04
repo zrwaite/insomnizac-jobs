@@ -1,7 +1,7 @@
 from datetime import datetime, UTC
 from shared.aws import default_handler
 from shared.scraper import get_soup
-from shared.aws import send_sns_notification, get_db_items, set_db_item
+from shared.aws import send_sns_notification, get_db_items, set_db_items
 
 def scrape_comedy_shows():
     soup = get_soup("https://comedymothership.com/shows")
@@ -39,6 +39,7 @@ DB_TABLE = 'comedy-mothership-shows'
 def store_shows(shows):
     new_shows = []
     new_sold_out_shows = []
+    newly_sold_out_shows = []
     newly_unsold_out_shows = []
     matching_existing_shows = get_db_items([show['id'] for show in shows], DB_TABLE)
     matching_existing_show_ids = [show['id'] for show in matching_existing_shows]
@@ -47,20 +48,23 @@ def store_shows(shows):
             # Try to get existing show
             if show['id'] not in matching_existing_show_ids:
                 # Show doesn't exist, add it
-                set_db_item(show, DB_TABLE)
                 if show['sold_out']:
                     new_sold_out_shows.append(show)
                 else:
                     new_shows.append(show)
             elif show['sold_out'] != matching_existing_shows[matching_existing_show_ids.index(show['id'])]['sold_out']:
                 # Show exists but sold out status is different, update it
-                set_db_item(show, DB_TABLE)
                 if not show['sold_out']:
                     newly_unsold_out_shows.append(show)
+                else:
+                    newly_sold_out_shows.append(show)
         except Exception as e:
             print(f"Error storing show: {e}")
             continue
     
+    new_or_updated_shows = new_shows + new_sold_out_shows + newly_sold_out_shows + newly_unsold_out_shows
+    set_db_items(new_or_updated_shows, DB_TABLE)
+
     return new_shows, new_sold_out_shows, newly_unsold_out_shows
 
 
